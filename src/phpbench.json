@@ -1,0 +1,23 @@
+{
+  "$schema": "./vendor/phpbench/phpbench/phpbench.schema.json",
+  "runner.bootstrap": "./vendor/autoload.php",
+  "runner.path": "./tests/",
+  "runner.file_pattern": "*Bench.php",
+  "runner.annotations": false,
+  "runner.attributes": true,
+  "runner.time_unit": "microseconds",
+  "runner.revs": 64,
+  "runner.iterations": 32,
+  "runner.retry_threshold": 16,
+  "runner.progress": "blinken",
+  "report.generators": {
+    "multi": {
+      "generator": "composite",
+      "reports": [
+        "default",
+        "env",
+        "overview"
+      ]
+    }
+  }
+}

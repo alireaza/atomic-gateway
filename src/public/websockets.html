@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<body>
+<label>
+    Query:
+    <input id="query" type="text" value="{}"/>
+    <button type="button" onclick="sendQuery()">Send Query</button>
+</label>
+
+<div id="responses"></div>
+
+<script>
+    function showMessage(message, connection) {
+        let msgBox = document.getElementById('pre' + connection)
+
+        if (!msgBox) {
+            let responsesElement = document.getElementById('responses')
+
+            const pre = document.createElement("pre")
+            pre.style.cssText = 'margin-bottom: 32px'
+            pre.setAttribute('id', 'pre' + connection)
+
+            responsesElement.appendChild(pre)
+
+            msgBox = document.getElementById('pre' + connection)
+        }
+
+        msgBox.innerHTML = msgBox.innerHTML + "\n" + message;
+    }
+
+    let tm = []
+
+    function ping(ws) {
+        websocket[ws].send('*PING*');
+        tm[ws] = setTimeout(function () {
+            websocket[ws].close();
+        }, 5000);
+    }
+
+    function pong(ws) {
+        clearTimeout(tm[ws]);
+    }
+
+    function ping_pong(ws) {
+        setTimeout(() => {
+            ping(ws)
+
+            ping_pong(ws)
+        }, 10000)
+    }
+    
+    let websocket = []
+
+    for (let ws = 0; ws < 4; ws++) {
+        // setTimeout(function() {
+            websocket[ws] = new WebSocket("ws://172.110.2.2/ws");
+
+            websocket[ws].onopen = function () {
+                ping_pong(ws)
+
+                showMessage('Connection is established!', ws)
+
+                for (let m = 0; m < 4; m++) {
+                    websocket[ws].send('C: '+ws+' > Msg: ' + m)
+                }
+            }
+
+            websocket[ws].onmessage = function (event) {
+                if (event.data === '*PONG*') {
+                    pong(ws);
+                    return;
+                }
+
+                showMessage(event.data, ws)
+            };
+
+            websocket[ws].onerror = function () {
+                showMessage('Problem due to some Error', ws)
+            };
+
+            websocket[ws].onclose = function () {
+                showMessage('Connection Closed', ws);
+            };
+        // }, ((Math.floor(Math.random() * 5)) * Math.ceil(ws/2)) * 1000);
+    }
+
+
+    // const websocket = new WebSocket("ws://172.110.2.2/ws");
+    //
+    // websocket.onopen = function (event) {
+    //     setInterval(ping, 10000);
+    //
+    //     showMessage("<div class='chat-connection-ack'>Connection is established!</div>");
+    // }
+    //
+    // websocket.onmessage = function (event) {
+    //     if (event.data === '*PONG*') {
+    //         pong();
+    //         return;
+    //     }
+    //
+    //     showMessage("<div>" + event.data + "</div>");
+    // };
+    //
+    // websocket.onerror = function (event) {
+    //     showMessage("<div class='error'>Problem due to some Error</div>");
+    // };
+    //
+    // websocket.onclose = function (event) {
+    //     showMessage("<div class='chat-connection-ack'>Connection Closed</div>");
+    // };
+    //
+    // function sendQuery() {
+    //     const messageJSON = document.getElementById('query').value;
+    //
+    //     websocket.send(messageJSON);
+    // }
+</script>
+</body>
+</html>

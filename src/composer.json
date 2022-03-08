@@ -1,0 +1,77 @@
+{
+  "name": "alireaza/atomic-gateway",
+  "version": "1.0.0",
+  "type": "project",
+  "license": "MIT",
+  "description": "Atomic Gateway",
+  "keywords": [
+    "alireaza",
+    "atomic",
+    "framework",
+    "gateway"
+  ],
+  "homepage": "https://gitlab.com/alireaza/atomic-gateway",
+  "authors": [
+    {
+      "name": "Mohammad Ali Ghorbani Delijani",
+      "homepage": "https://www.alireaza.com",
+      "email": "alireazamagh@gmail.com"
+    }
+  ],
+  "funding": [
+    {
+      "type": "LinkedIn",
+      "url": "https://www.linkedin.com/in/alireaza"
+    }
+  ],
+  "require": {
+    "php": "^8.0.0",
+    "symfony/http-kernel": "v5.3.7",
+    "symfony/http-foundation": "v5.3.7",
+    "alireaza/container": "1.2.0",
+    "alireaza/dependency-injection": "1.2.0",
+    "alireaza/dot-env": "1.3.0",
+    "alireaza/dot-env-resolver-variables": "1.3.0",
+    "alireaza/error-handler": "1.2.0",
+    "alireaza/error-handler-render-json-response": "1.2.0",
+    "alireaza/event-driven": "1.2.0",
+    "alireaza/event-driven-kafka": "1.2.0",
+    "ext-rdkafka": "6.0.0",
+    "symfony/mime": "^6.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.5.16",
+    "phpbench/phpbench": "^1.2.4",
+    "symfony/var-dumper": "v5.3.7",
+    "eaglewu/swoole-ide-helper": "dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "AliReaza\\Atomic\\": "./app/"
+    },
+    "files": [
+      "./vendor/alireaza/dot-env/src/env.php",
+      "./helpers.php",
+      "./bootstrap/bootstrap.php"
+    ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "AliReaza\\Atomic\\Tests\\": "./tests/"
+    }
+  },
+  "scripts": {
+    "post-root-package-install": [
+      "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+    ],
+    "test": [
+      "php ./vendor/bin/phpunit tests",
+      "@test:benchmark"
+    ],
+    "test:unit": "php ./vendor/bin/phpunit tests/Unit",
+    "test:integration": "php ./vendor/bin/phpunit tests/Integration",
+    "test:functional": "php ./vendor/bin/phpunit tests/Functional",
+    "test:feature": "php ./vendor/bin/phpunit tests/Feature",
+    "test:benchmark": "php ./vendor/bin/phpbench run --report=multi"
+  }
+}
