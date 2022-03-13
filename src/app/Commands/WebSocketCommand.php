@@ -24,9 +24,21 @@ class WebSocketCommand
         $this->server = new Swoole\WebSocket\Server(env('SWOOLE_WEB_SOCKET_HOST', 'localhost'), env('SWOOLE_WEB_SOCKET_PORT', 80));
 
         $this->server->set([
-            'enable_coroutine' => false,
+            // Process
+            'daemonize' => false,
+
+            // Server
+            'dispatch_mode' => 2,
+
+            // Logging
             'log_level' => SWOOLE_LOG_DEBUG,
+
+            // Coroutine
+            'enable_coroutine' => false,
         ]);
+
+        $this->prepareKeysTable();
+        $this->listenerProcess($this->server);
 
         return $this;
     }
@@ -41,7 +53,7 @@ class WebSocketCommand
         $this->server->start();
     }
 
-    public function __invoke()
+    public function __invoke(): void
     {
         $this->server()->run();
     }
@@ -54,18 +66,19 @@ class WebSocketCommand
     public function onOpen(Swoole\WebSocket\Server $server, Swoole\Http\Request $request): void
     {
         $this->newConnection($request);
-
-        $this->listenerProcess($server);
     }
 
-    private function newConnection(Swoole\Http\Request $request = null): void
+    private function prepareKeysTable(): void
     {
         if (is_null($this->keys)) {
             $this->keys = new Swoole\Table(env('SOCKET_SWOOLE_TABLE_SIZE', 1024 * 32));
             $this->keys->column('sec', Swoole\Table::TYPE_STRING, 32);
             $this->keys->create();
         }
+    }
 
+    private function newConnection(Swoole\Http\Request $request = null): void
+    {
         $this->keys->set($request->fd, ['sec' => $request->header['sec-websocket-key']]);
     }
 
@@ -78,7 +91,7 @@ class WebSocketCommand
                 $process->exit(0);
             }, false, true);
 
-            $this->process->start();
+            $server->addProcess($this->process);
         }
     }
 
@@ -88,6 +101,7 @@ class WebSocketCommand
 
         if (property_exists($this->listener->provider, 'conf') && $this->listener->provider->conf instanceof RdKafka\Conf) {
             $this->listener->provider->conf->set('group.id', 'Gateway-WebSocket-' . date("YmdHis") . time() . rand(1111, 9999));
+            $this->listener->provider->conf->set('auto.offset.reset', 'latest');
         }
 
         $this->listener->addListener($event_class, function (WebSocketResponseEvent $response, string $correlation_id) use ($server): void {

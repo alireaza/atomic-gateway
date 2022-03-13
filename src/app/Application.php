@@ -2,7 +2,6 @@
 
 namespace AliReaza\Atomic;
 
-use AliReaza\Atomic\Commands\WebSocketCommand;
 use AliReaza\Atomic\Controllers\HttpController;
 use AliReaza\DependencyInjection\DependencyInjectionContainer as DIC;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,12 +20,9 @@ class Application implements HttpKernelInterface
 
     public function handle(Request $request, int $type = self::MAIN_REQUEST, bool $catch = true): JsonResponse
     {
-        if (php_sapi_name() === 'cli') {
-            if (is_callable($command = $this->container->call(WebSocketCommand::class))) {
-                call_user_func($command);
-            }
-
-            exit();
+        if ($this->isCli()) {
+            $this->runCommand();
+            exit(0);
         }
 
         $this->response->setStatusCode(Response::HTTP_SERVICE_UNAVAILABLE);
@@ -37,5 +33,25 @@ class Application implements HttpKernelInterface
         }
 
         return $this->response->send();
+    }
+
+    private function isCli(): bool
+    {
+        return php_sapi_name() === 'cli';
+    }
+
+    private function runCommand(): void
+    {
+        $options = getopt('c:', ['command:']);
+
+        if (!isset($options['c']) && !isset($options['command'])) {
+            exit(0);
+        }
+
+        $command_name = $options['c'] ?? $options['command'];
+
+        if (is_callable($command = $this->container->call($command_name))) {
+            call_user_func($command);
+        }
     }
 }

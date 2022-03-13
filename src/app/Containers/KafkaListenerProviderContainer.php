@@ -18,8 +18,6 @@ class KafkaListenerProviderContainer
     {
         $conf = $this->container->make(RdKafka\Conf::class);
 
-        $conf->set('auto.offset.reset', 'earliest');
-
         $conf->setRebalanceCb(function (RdKafka\KafkaConsumer $consumer, $err, array $partitions = null) {
             switch ($err) {
                 case RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS:

@@ -5,6 +5,7 @@ use AliReaza\Atomic\Containers\ErrorHandlerContainer;
 use AliReaza\Atomic\Containers\KafkaConfContainer;
 use AliReaza\Atomic\Containers\KafkaEventDispatcherContainer;
 use AliReaza\Atomic\Containers\KafkaListenerProviderContainer;
+use AliReaza\Atomic\Containers\PredisClientContainer;
 use AliReaza\DependencyInjection\DependencyInjectionContainer as DIC;
 use AliReaza\DependencyInjection\DependencyInjectionContainerBuilder as DICBuilder;
 use AliReaza\DotEnv\DotEnv;
@@ -23,6 +24,7 @@ return (new class(DICBuilder::getInstance()) {
         $this->error_handler = $this->container->resolve(ErrorHandler::class);
 
         $this->container->set(DotEnv::class, fn(): DotEnv => (new DotEnvContainer())());
+        $this->container->resolve(DotEnv::class);
 
         $this->container->set(RdKafka\Conf::class, fn(): RdKafka\Conf => (new KafkaConfContainer())());
 
@@ -31,6 +33,8 @@ return (new class(DICBuilder::getInstance()) {
 
         $this->container->set(KafkaListenerProvider::class, fn(DIC $container): ListenerProvider => (new KafkaListenerProviderContainer($container))());
         $this->container->set(ListenerProvider::class, fn(DIC $container): ListenerProvider => $container->resolve(KafkaListenerProvider::class));
+
+        $this->container->set(Predis\Client::class, fn(): Predis\Client => (new PredisClientContainer())());
     }
 
     public function __invoke(): void

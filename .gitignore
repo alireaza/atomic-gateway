@@ -6,4 +6,5 @@
 !/nginx/
 !/src/
 !/php/
+!/redis/
 !/*.sh

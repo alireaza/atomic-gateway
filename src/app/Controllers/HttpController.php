@@ -5,8 +5,7 @@ namespace AliReaza\Atomic\Controllers;
 use AliReaza\Atomic\Events\HttpRequestEvent;
 use AliReaza\Atomic\Events\HttpResponseEvent;
 use AliReaza\EventDriven\EventDispatcher;
-use AliReaza\EventDriven\ListenerProvider;
-use RdKafka;
+use Predis;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,7 +14,7 @@ use Throwable;
 
 class HttpController
 {
-    public function __construct(private Request $request, private JsonResponse $response, private EventDispatcher $dispatcher, private ListenerProvider $listener)
+    public function __construct(private Request $request, private JsonResponse $response, private EventDispatcher $dispatcher, private Predis\Client $redis_client)
     {
     }
 
@@ -24,7 +23,7 @@ class HttpController
         if ($this->request->isMethod(Request::METHOD_POST)) {
             $this->handleRequest();
         } else if ($this->hasCorrelationIdRequest() && !empty($correlation_id = $this->request->query->get('correlation_id'))) {
-            $this->listen($correlation_id);
+            $this->getCorrelationId($correlation_id);
         }
     }
 
@@ -50,8 +49,8 @@ class HttpController
         if (is_array($content)) {
             $correlation_id = $this->dispatch($content, $files);
 
-            if ($this->hasSyncRequest()) {
-                $this->listen($correlation_id);
+            if (env('HTTP_SYNC_ENABLE', false) && $this->hasSyncRequest()) {
+                $this->getCorrelationId($correlation_id);
             }
         }
     }
@@ -83,6 +82,9 @@ class HttpController
 
         $correlation_id = $this->dispatcher->getCorrelationId();
 
+        $this->redis_client->set($correlation_id, null);
+        $this->redis_client->persist($correlation_id);
+
         $this->dispatcher->dispatch($request);
 
         $this->response->setStatusCode(Response::HTTP_ACCEPTED);
@@ -95,7 +97,8 @@ class HttpController
 
     private function hasSyncRequest(): bool
     {
-        return $this->request->isMethod(Request::METHOD_POST) && $this->request->query->has('sync');
+        $sync_param_name = env('HTTP_SYNC_PARAM_NAME', 'sync');
+        return $this->request->isMethod(Request::METHOD_POST) && $this->request->query->has($sync_param_name);
     }
 
     private function hasCorrelationIdRequest(): bool
@@ -103,27 +106,35 @@ class HttpController
         return $this->request->isMethod(Request::METHOD_GET) && $this->request->query->has('correlation_id');
     }
 
-    private function listen(string $correlation_id): void
+    private function getCorrelationId(string $correlation_id): void
     {
-        $event_class = env('HTTP_RESPONSE_EVENT', HttpResponseEvent::class);
+        $this->response->setStatusCode(Response::HTTP_NOT_FOUND);
 
-        if (property_exists($this->listener->provider, 'conf') && $this->listener->provider->conf instanceof RdKafka\Conf) {
-            $this->listener->provider->conf->set('group.id', 'Gateway-Http-' . date("YmdHis") . time() . rand(1111, 9999));
-        }
+        if ($this->redis_client->exists($correlation_id)) {
+            $this->response->setStatusCode(Response::HTTP_ACCEPTED);
 
-        $cid = $correlation_id;
-        $this->listener->addListener($event_class, function (HttpResponseEvent $response, string $correlation_id) use ($cid): void {
-            if ($cid === $correlation_id) {
+            $time_steps = 250000;
+            for ($time = 0; $time <= (env('HTTP_SYNC_TIMEOUT_SEC', 5) * 1000000); $time += $time_steps) {
+                $value = $this->redis_client->get($correlation_id);
+
+                if (empty($value)) {
+                    usleep($time_steps);
+
+                    continue;
+                }
+
+                $values = json_decode($value);
+
+                $event_class = env('HTTP_RESPONSE_EVENT', HttpResponseEvent::class);
+                $response = new $event_class($values->content, $values->status_code);
+
                 $this->response->headers->set('correlation_id', $correlation_id);
+                $this->response->headers->set('Expires', $this->redis_client->ttl($correlation_id));
                 $this->response->setStatusCode($response->status_code);
                 $this->response->setJson($response->content);
 
-                $this->listener->unsubscribe();
+                break;
             }
-        });
-
-        $this->response->setStatusCode(Response::HTTP_REQUEST_TIMEOUT);
-
-        $this->listener->subscribe(env('SYNC_TIMEOUT', 10000));
+        }
     }
 }

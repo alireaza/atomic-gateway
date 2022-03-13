@@ -25,7 +25,7 @@ $ CURRENT_UID=$(id -u):$(id -g) docker-compose down
 
 #### Fix permission services
 ```bash
-$ sudo chown -R $(id -u):$(id -g) {./nginx/,./php/,./src/}
+$ sudo chown -R $(id -u):$(id -g) {./nginx/,./php/,./src/,./redis/}
 ```
 
 #### Nginx Log
@@ -56,6 +56,21 @@ $ docker-compose exec --user $(id -u):$(id -g) php composer -h
 #### Run dbgpProxy
 ```bash
 $ docker-compose exec php /usr/bin/dbgpProxy --server 0.0.0.0:9003 --client 0.0.0.0:9001
+```
+
+#### Supervisord CLI
+```bash
+$ docker-compose exec --user $(id -u):$(id -g) php supervisord -h
+```
+
+#### Redis Log
+```bash
+$ docker-compose logs --tail 100 --follow redis
+```
+
+#### Redis CLI
+```bash
+$ docker-compose exec redis redis-cli -h
 ```
 
 ## License
