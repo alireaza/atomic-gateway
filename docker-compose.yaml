@@ -17,9 +17,12 @@ services:
     build: ./nginx
     volumes:
       - ./src:/var/www/html
-      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/conf.d:/etc/nginx/conf.d.tmp
       - ./nginx/log:/var/log/nginx
+      - ./storage:/storage
     restart: always
+    environment:
+      - STORAGE_DIRECTORY=${STORAGE_DIRECTORY:-/storage/}
     networks:
       atomic_service:
         ipv4_address: ${NGINX_IPV4:-172.110.2.2}
@@ -31,11 +34,13 @@ services:
       - ./php/udocker:/home/udocker
       - ./php/conf.d:/usr/local/etc/php/conf.d
       - ./php/supervisord.conf:/etc/supervisord.conf
+      - ./storage:/storage
     restart: always
     environment:
       - PHP_IPV4=${PHP_IPV4:-172.110.2.3}
       - PHP_OPCACHE_JIT=${PHP_OPCACHE_JIT:-on}
       - PHP_XDEBUG_MODE=${PHP_XDEBUG_MODE:-off}
+      - STORAGE_DIRECTORY=${STORAGE_DIRECTORY:-/storage/}
     user: ${CURRENT_UID:-root}
     networks:
       atomic_service:

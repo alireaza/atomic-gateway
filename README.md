@@ -25,7 +25,7 @@ $ CURRENT_UID=$(id -u):$(id -g) docker-compose down
 
 #### Fix permission services
 ```bash
-$ sudo chown -R $(id -u):$(id -g) {./nginx/,./php/,./src/,./redis/}
+$ sudo chown -R $(id -u):$(id -g) {./nginx/,./php/,./src/,./redis/,./storage/}
 ```
 
 #### Nginx Log

@@ -4,8 +4,10 @@ namespace AliReaza\Atomic\Controllers;
 
 use AliReaza\Atomic\Events\HttpRequestEvent;
 use AliReaza\Atomic\Events\HttpResponseEvent;
+use AliReaza\Atomic\Events\UploadedFileEvent;
 use AliReaza\EventDriven\EventDispatcher;
 use Predis;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -59,12 +61,25 @@ class HttpController
     {
         $_files = [];
 
+        $filesystem = new Filesystem();
+
         foreach ($files as $key => $file) {
             if ($file instanceof UploadedFile) {
+                $storage_directory = env('STORAGE_DIRECTORY', '/storage/');
+                $hash = hash_file('sha256', $file->getPathname());
+                $name = $file->getClientOriginalName();
+                $mime = $file->getMimeType();
+
+                if ($filesystem->exists($storage_directory . $hash)) {
+                    $filesystem->remove($file->getRealPath());
+                } else {
+                    $file->move($storage_directory, $hash);
+                }
+
                 $_files[$key] = [
-                    'name' => $file->getClientOriginalName(),
-                    'mime' => $file->getMimeType(),
-                    'hash' => $file->getRealPath(),
+                    'name' => $name,
+                    'mime' => $mime,
+                    'hash' => $hash,
                 ];
             }
         }
@@ -80,12 +95,25 @@ class HttpController
 
         $request = new $event_class($json_content, $files);
 
+        $event_id = $this->dispatcher->getEventId();
         $correlation_id = $this->dispatcher->getCorrelationId();
 
         $this->redis_client->set($correlation_id, null);
         $this->redis_client->persist($correlation_id);
 
         $this->dispatcher->dispatch($request);
+
+        if (is_array($files) && !empty($files)) {
+            foreach ($files as $file) {
+                $event_class = env('UPLOADED_FILE_EVENT', UploadedFileEvent::class);
+
+                $uploaded = new $event_class($file['name'], $file['mime'], $file['hash']);
+
+                $this->dispatcher->setCorrelationId($correlation_id);
+                $this->dispatcher->setCausationId($event_id);
+                $this->dispatcher->dispatch($uploaded);
+            }
+        }
 
         $this->response->setStatusCode(Response::HTTP_ACCEPTED);
         $this->response->setData([
